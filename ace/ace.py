@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
 
-from .core import Generator, Reflector, Curator, BulletpointAnalyzer
+from .core import Generator, Reflector, Curator, BulletpointAnalyzer, Retriever
 from playbook_utils import *
 from logger import *
 from utils import *
@@ -39,21 +39,9 @@ class ACE:
         max_tokens: int = 4096,
         initial_playbook: Optional[str] = None,
         use_bulletpoint_analyzer: bool = False,
-        bulletpoint_analyzer_threshold: float = 0.90
+        bulletpoint_analyzer_threshold: float = 0.90,
+        retriever_top_k: int = 5
     ):
-        """
-        Initialize the ACE system.
-        
-        Args:
-            api_provider: API provider for LLM calls
-            generator_model: Model name for generator
-            reflector_model: Model name for reflector
-            curator_model: Model name for curator
-            max_tokens: Maximum tokens for LLM calls
-            initial_playbook: Initial playbook content (optional)
-            use_bulletpoint_analyzer: Whether to use bulletpoint analyzer for deduplication
-            bulletpoint_analyzer_threshold: Similarity threshold for bulletpoint analyzer (0-1)
-        """
         # Initialize API clients
         generator_client, reflector_client, curator_client = initialize_clients(api_provider)
 
@@ -61,6 +49,7 @@ class ACE:
         self.generator = Generator(generator_client, api_provider, generator_model, max_tokens)
         self.reflector = Reflector(reflector_client, api_provider, reflector_model, max_tokens)
         self.curator = Curator(curator_client, api_provider, curator_model, max_tokens)
+        self.retriever = Retriever(top_k=retriever_top_k)
         
         # Initialize bulletpoint analyzer if requested and available
         self.use_bulletpoint_analyzer = use_bulletpoint_analyzer
@@ -459,12 +448,14 @@ class ACE:
         question = task_dict.get("question", "")
         context = task_dict.get("context", "")
         target = task_dict.get("target", "")
-        
+
+        retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
+
         # STEP 1: Initial generation (pre-train)
         print("Generating initial answer...")
         gen_response, bullet_ids, call_info = self.generator.generate(
             question=question,
-            playbook=self.playbook,
+            playbook=retrieved_playbook,
             context=context,
             reflection="(empty)",
             use_json_mode=use_json_mode,
@@ -525,11 +516,13 @@ class ACE:
                     self.playbook = update_bullet_counts(
                         self.playbook, bullet_tags
                     )
+
+                retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
                 
                 # Regenerate with reflection
                 gen_response, bullet_ids, _ = self.generator.generate(
                     question=question,
-                    playbook=self.playbook,
+                    playbook=retrieved_playbook,
                     context=context,
                     reflection=reflection_content,
                     use_json_mode=use_json_mode,
@@ -604,11 +597,13 @@ class ACE:
                     threshold=self.bulletpoint_analyzer_threshold,
                     merge=True
                 )
+
+        retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
         
         # STEP 4: Post-curator generation
         gen_response, _, _ = self.generator.generate(
             question=question,
-            playbook=self.playbook,
+            playbook=retrieved_playbook,
             context=context,
             reflection="(empty)",
             use_json_mode=use_json_mode,

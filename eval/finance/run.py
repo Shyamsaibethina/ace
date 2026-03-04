@@ -75,6 +75,10 @@ def parse_args():
     parser.add_argument("--bulletpoint_analyzer_threshold", type=float, default=0.90,
                         help="Similarity threshold for bulletpoint analyzer (0-1, default: 0.90)")
     
+    # Retriever configuration
+    parser.add_argument("--retriever_top_k", type=int, default=5,
+                        help="Number of top bullets to retrieve per question (default: 5)")
+    
     # Output configuration
     parser.add_argument("--save_path", type=str, required=True,
                         help="Directory to save results")
@@ -202,7 +206,8 @@ def main():
         max_tokens=args.max_tokens,
         initial_playbook=initial_playbook,
         use_bulletpoint_analyzer=args.use_bulletpoint_analyzer,
-        bulletpoint_analyzer_threshold=args.bulletpoint_analyzer_threshold
+        bulletpoint_analyzer_threshold=args.bulletpoint_analyzer_threshold,
+        retriever_top_k=args.retriever_top_k
     )
     
     # Prepare configuration
