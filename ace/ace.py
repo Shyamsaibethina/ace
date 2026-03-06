@@ -279,7 +279,8 @@ class ACE:
                     config=config,
                     log_dir=log_dir,
                     save_path=save_path,
-                    prefix="final"
+                    prefix="final",
+                    use_retriever=True
                 )
                 results['final_test_results'] = final_test_results
                 print(f"Final Test Accuracy: {final_test_results['accuracy']:.3f}\n")
@@ -329,7 +330,8 @@ class ACE:
                 config=config,
                 log_dir=log_dir,
                 save_path=save_path,
-                prefix="test"
+                prefix="test",
+                use_retriever=config.get('use_retriever', False)
             )
             results['test_results'] = test_results
         
@@ -366,7 +368,8 @@ class ACE:
         config: Dict[str, Any],
         log_dir: str,
         save_path: str,
-        prefix: str = "test"
+        prefix: str = "test",
+        use_retriever: bool = False
     ) -> Dict[str, Any]:
         """
         Run testing
@@ -379,6 +382,7 @@ class ACE:
             log_dir: Directory for detailed logs
             save_path: Path to save results
             prefix: Prefix for saved files (e.g., 'initial', 'final', 'test')
+            use_retriever: If True, use retriever to build per-sample mini playbooks
             
         Returns:
             Dictionary with test results
@@ -386,6 +390,11 @@ class ACE:
         config_params = self._extract_config_params(config)
         use_json_mode = config_params['use_json_mode']
         test_workers = config_params['test_workers']
+
+        retriever = None
+        if use_retriever:
+            self.retriever.index_playbook(playbook)
+            retriever = self.retriever
         
         test_results, test_error_log = evaluate_test_set(
             data_processor,
@@ -395,7 +404,8 @@ class ACE:
             self.max_tokens,
             log_dir,
             max_workers=test_workers,
-            use_json_mode=use_json_mode
+            use_json_mode=use_json_mode,
+            retriever=retriever
         )
 
         # Save test results
@@ -449,13 +459,11 @@ class ACE:
         context = task_dict.get("context", "")
         target = task_dict.get("target", "")
 
-        retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
-
         # STEP 1: Initial generation (pre-train)
         print("Generating initial answer...")
         gen_response, bullet_ids, call_info = self.generator.generate(
             question=question,
-            playbook=retrieved_playbook,
+            playbook=self.playbook,
             context=context,
             reflection="(empty)",
             use_json_mode=use_json_mode,
@@ -517,12 +525,10 @@ class ACE:
                         self.playbook, bullet_tags
                     )
 
-                retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
-                
                 # Regenerate with reflection
                 gen_response, bullet_ids, _ = self.generator.generate(
                     question=question,
-                    playbook=retrieved_playbook,
+                    playbook=self.playbook,
                     context=context,
                     reflection=reflection_content,
                     use_json_mode=use_json_mode,
@@ -598,12 +604,10 @@ class ACE:
                     merge=True
                 )
 
-        retrieved_playbook = self.retriever.retrieve(self.playbook, question, context)
-        
         # STEP 4: Post-curator generation
         gen_response, _, _ = self.generator.generate(
             question=question,
-            playbook=retrieved_playbook,
+            playbook=self.playbook,
             context=context,
             reflection="(empty)",
             use_json_mode=use_json_mode,
