@@ -40,7 +40,8 @@ class ACE:
         initial_playbook: Optional[str] = None,
         use_bulletpoint_analyzer: bool = False,
         bulletpoint_analyzer_threshold: float = 0.90,
-        retriever_top_k: int = 5
+        retriever_top_k: int = 5,
+        retriever_model_name: str = "intfloat/multilingual-e5-large"
     ):
         # Initialize API clients
         generator_client, reflector_client, curator_client = initialize_clients(api_provider)
@@ -49,7 +50,7 @@ class ACE:
         self.generator = Generator(generator_client, api_provider, generator_model, max_tokens)
         self.reflector = Reflector(reflector_client, api_provider, reflector_model, max_tokens)
         self.curator = Curator(curator_client, api_provider, curator_model, max_tokens)
-        self.retriever = Retriever(top_k=retriever_top_k)
+        self.retriever = Retriever(model_name=retriever_model_name, top_k=retriever_top_k)
         
         # Initialize bulletpoint analyzer if requested and available
         self.use_bulletpoint_analyzer = use_bulletpoint_analyzer
@@ -120,7 +121,10 @@ class ACE:
             'save_dir': config.get('save_dir', './results'),
             'test_workers': config.get('test_workers', 20),
             'use_bulletpoint_analyzer': config.get('use_bulletpoint_analyzer', False),
-            'bulletpoint_analyzer_threshold': config.get('bulletpoint_analyzer_threshold', 0.90)
+            'bulletpoint_analyzer_threshold': config.get('bulletpoint_analyzer_threshold', 0.90),
+            'use_retriever': config.get('use_retriever', False),
+            'retriever_top_k': config.get('retriever_top_k', 5),
+            'retriever_model_name': config.get('retriever_model_name', 'intfloat/multilingual-e5-large')
         }
     
     def _setup_paths(self, save_dir: str, task_name: str, mode: str) -> Tuple[str, str]:
