@@ -43,6 +43,21 @@ class ACE:
         retriever_top_k: int = 5,
         retriever_model_name: str = "intfloat/multilingual-e5-large"
     ):
+        """
+        Initialize the ACE system.
+        
+        Args:
+            api_provider: API provider for LLM calls
+            generator_model: Model name for generator
+            reflector_model: Model name for reflector
+            curator_model: Model name for curator
+            max_tokens: Maximum tokens for LLM calls
+            initial_playbook: Initial playbook content (optional)
+            use_bulletpoint_analyzer: Whether to use bulletpoint analyzer for deduplication
+            bulletpoint_analyzer_threshold: Similarity threshold for bulletpoint analyzer (0-1)
+            retriever_top_k: Number of top bullets to retrieve per sample
+            retriever_model_name: Sentence-transformers model for retrieval embeddings
+        """
         # Initialize API clients
         generator_client, reflector_client, curator_client = initialize_clients(api_provider)
 
